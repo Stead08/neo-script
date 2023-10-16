@@ -12,10 +12,27 @@ pub enum Node {
     Calc(char, Box<Node>, Box<Node>),
     /** if expression **/
     If(Box<Node>, Vec<Node>, Vec<Node>),
-    /** for expression **/
-    For(String, i64, i64, Vec<Node>),
+    /** js-like for expression **/
+    For(Box<Node>, Box<Node>, Box<Node>, Vec<Node>),
+    /** while expression **/
+    While(Box<Node>, Vec<Node>),
+    /** bind variable expression **/
+    BindVariable(String, Box<Node>),
+    /** variable reference expression **/
+    VariableReference(String),
+    /** block expression **/
+    Block(Vec<Node>),
+    // 開発デバック用
+    // Print(console api実装まで）
+    DebugPrint(Box<Node>),
+    DebugPrintStr(String),
+}
 
-
-
-
+impl Node {
+    pub fn calc(op: char, left: Node, right: Node) -> Node {
+        Node::Calc(op, Box::new(left), Box::new(right))
+    }
+    pub fn if_expr(cond: Node, t: Vec<Node>, f: Vec<Node>) -> Node {
+        Node::If(Box::new(cond), t, f)
+    }
 }
