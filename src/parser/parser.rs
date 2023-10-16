@@ -73,7 +73,7 @@ peg::parser!(pub grammar neoscript() for str {
     rule factor() -> Node
         = "(" _ v:calc() _ ")" { v }
         / v:number() { Node::Number(v) }
-        / v:word() { Node::VariableReference(v) }
+        / v:word() { Node::ReferVariable(v) }
 
     rule number() -> i64
         = n:$(['0'..='9']+) { n.parse().unwrap() }

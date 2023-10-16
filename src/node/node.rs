@@ -19,7 +19,7 @@ pub enum Node {
     /** bind variable expression **/
     BindVariable(String, Box<Node>),
     /** variable reference expression **/
-    VariableReference(String),
+    ReferVariable(String),
     /** block expression **/
     Block(Vec<Node>),
     // 開発デバック用
