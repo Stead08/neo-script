@@ -1,31 +1,43 @@
-use peg;
 use crate::node::node::Node;
+use peg;
 
 peg::parser!(pub grammar neoscript() for str {
-    pub rule parse() -> Node
-        = v:block() { v }
+    pub rule parse() -> Vec<Node>
+        = v:sentences() { v }
+
+    rule sentences() -> Vec<Node>
+        = sentence() ** end_of_line()
+
+    rule sentence() -> Node
+    = print() / bind_variable() / assignment() / block()
 
     rule expression() -> Node
-        = print() / if_expr() / for_expr() / bind_variable() / calc() / _ { Node::None }
+    = if_expr() / calc() / for_expr() / print() / bind_variable() / assignment() / _ { Node::None }
 
     rule block() -> Node
-    = stmts:statement()* { Node::Block(stmts) }
+    = "{" _ v:sentences()? _ e:expression()? _ "}" _ {
+    let mut nodes = Vec::new();
+    if let Some(sentences) = v {
+        nodes.extend(sentences);
+    }
+    if let Some(expr) = e {
+        nodes.push(expr);
+    }
+    Node::Block(nodes)
+    }
 
-    rule statement() -> Node
-    = bind_variable() / expr_stmt()
 
-    rule expr_stmt() -> Node
-    = e:expression() ";" { e }
+    rule assignment() -> Node
+    = w:word() _ "=" _ v:expression() { Node::Assignment(w, Box::new(v)) }
+
 
     rule bind_variable() -> Node
         = "let" _ w:word() _ "=" _ v:expression() ";" { Node::BindVariable(w, Box::new(v)) }
 
-    rule assignment() -> Node
-    = w:word() _ "=" _ v:expression() { Node::BindVariable(w, Box::new(v)) }
 
     rule print() -> Node
-        = "print" _ "\"" v:$([^ '"']*) "\"" { Node::DebugPrintStr(v.to_string()) }
-        / "print" _ v:calc() { Node::DebugPrint(Box::new(v)) }
+    = "print" _ v:expression() ";" { Node::DebugPrint(Box::new(v)) }
+
 
     rule if_expr() -> Node
     = "if" _ "(" _ cond:calc() _ ")" _ t:block() elsifs:("else if" _ "(" _ c:calc() _ ")" _ b:block() { (c, b) })* else_block:("else" _ b:block() { b })? {
@@ -46,28 +58,27 @@ peg::parser!(pub grammar neoscript() for str {
     }
 
 
-
     // Calculation rules
     rule calc() -> Node = comp()
 
     rule comp() -> Node
-        = l:expr() "==" _ r:comp() { Node::calc('=', l, r) }
-        / l:expr() "!=" _ r:comp() { Node::calc('!', l, r) }
-        / l:expr() "<" _ r:comp() { Node::calc('<', l, r) }
-        / l:expr() ">" _ r:comp() { Node::calc('>', l, r) }
-        / l:expr() "<=" _ r:comp() { Node::calc('l', l, r) }
-        / l:expr() ">=" _ r:comp() { Node::calc('g', l, r) }
+        = l:expr() _ "==" _ r:comp() { Node::calc('=', l, r) }
+        / l:expr() _ "!=" _ r:comp() { Node::calc('!', l, r) }
+        / l:expr() _ "<" _ r:comp() { Node::calc('<', l, r) }
+        / l:expr() _ ">" _ r:comp() { Node::calc('>', l, r) }
+        / l:expr() _ "<=" _ r:comp() { Node::calc('l', l, r) }
+        / l:expr() _ ">=" _ r:comp() { Node::calc('g', l, r) }
         / expr()
 
     rule expr() -> Node
-        = l:term() "+" _ r:expr() { Node::calc('+', l, r) }
-        / l:term() "-" _ r:expr() { Node::calc('-', l, r) }
+        = l:term() _ "+" _ r:expr() { Node::calc('+', l, r) }
+        / l:term() _ "-" _ r:expr() { Node::calc('-', l, r) }
         / term()
 
     rule term() -> Node
-        = l:factor() "*" _ r:term() { Node::calc('*', l, r) }
-        / l:factor() "/" _ r:term() { Node::calc('/', l, r) }
-        / l:factor() "%" _ r:term() { Node::calc('%', l, r) }
+        = l:factor() _ "*" _ r:term() { Node::calc('*', l, r) }
+        / l:factor() _ "/" _ r:term() { Node::calc('/', l, r) }
+        / l:factor() _ "%" _ r:term() { Node::calc('%', l, r) }
         / factor()
 
     rule factor() -> Node
@@ -84,6 +95,7 @@ peg::parser!(pub grammar neoscript() for str {
     rule _()
         = ws() / line_comment()
 
+    rule end_of_line() = [';' | '\n']+ _
     rule ws() = [' ' | '\n' | '\t']*
     rule lf() = "\n"
     rule line_comment() = "//" (!lf() [_])* lf()
