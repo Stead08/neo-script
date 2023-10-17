@@ -36,16 +36,17 @@ fn run_node(ctx: &mut Context, node: Node) -> Result<i64> {
         }
         Node::For(init, cond, update, body) => {
             run_node(ctx, *init)?;
-
-            while run_node(ctx, *cond.clone())? != 0 {
-                for stmt in body.iter() {
-                    run_node(ctx, stmt.clone())?;
-                }
-                run_node(ctx, *update.clone())?;
+            while {
+                let condition_result = run_node(ctx, *cond.clone())?;
+                condition_result > 0
+            } {
+                run_nodes(ctx, &body)?;
+                // Update using Assignment
+                run_node(ctx, Node::Assignment("i".to_string(), update.clone()))?;
             }
-
-            Ok(0) // for式は値を返さないと仮定
+            Ok(0)
         }
+
         Node::DebugPrint(v) => {
             println!("{}", run_node(ctx, *v)?);
             Ok(0)
@@ -53,6 +54,11 @@ fn run_node(ctx: &mut Context, node: Node) -> Result<i64> {
         Node::DebugPrintStr(v) => {
             println!("{}", v);
             Ok(0)
+        }
+        Node::Assignment(var_name, expr) => {
+            let val = run_node(ctx, *expr)?;
+            ctx.vars.insert(var_name, val);
+            Ok(val)
         }
         Node::Block(nodes) => run_nodes(ctx, &nodes),
         _ => Err(anyhow!("Unsupported node")),

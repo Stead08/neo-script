@@ -3,16 +3,17 @@ use peg;
 
 peg::parser!(pub grammar neoscript() for str {
     pub rule parse() -> Vec<Node>
-        = v:sentences() { v }
+        = _
+    v:sentences() { v }
 
     rule sentences() -> Vec<Node>
-        = sentence() ** end_of_line()
+        = sentence() ** (_ ";"? _)
 
     rule sentence() -> Node
-    = print() / bind_variable() / assignment() / block()
+    = s:( if_() / for_()/ print() / bind_variable() / assignment() / block()) _ ";"? _ { s }
 
     rule expression() -> Node
-    = if_expr() / calc() / for_expr() / print() / bind_variable() / assignment() / _ { Node::None }
+    = if_() / calc() / for_() / print() / bind_variable() / assignment()
 
     rule block() -> Node
     = "{" _ v:sentences()? _ e:expression()? _ "}" _ {
@@ -36,10 +37,11 @@ peg::parser!(pub grammar neoscript() for str {
 
 
     rule print() -> Node
-    = "print" _ v:expression() ";" { Node::DebugPrint(Box::new(v)) }
+    = "print" _ "\"" v:$([^ '"']*) "\"" {Node::DebugPrintStr(v.to_string())}
+    / "print" _ v:expression() ";" { Node::DebugPrint(Box::new(v)) }
 
 
-    rule if_expr() -> Node = "if" _ v:if_cond() { v }
+    rule if_() -> Node = "if" _ v:if_cond() { v }
 
     rule if_cond() -> Node
         = if_elseif() / if_else() / if_only()
@@ -59,12 +61,9 @@ peg::parser!(pub grammar neoscript() for str {
             Node::If(Box::new(cond), vec![t], vec![])
         }
 
-
-
-    rule for_expr() -> Node
-    = "for" _ "(" _ init:assignment() _ ";" _ cond:calc() _ ";" _ update:assignment() _ ")" _ body:block() {
-        Node::For(Box::new(init), Box::new(cond), Box::new(update), vec![body]);
-        Node::None
+    rule for_() -> Node
+    = "for" _ "(" _ init:assignment() _ ";" _ cond:calc() _ ";" _ update:operator() _ ")" _ body:block() {
+        Node::For(Box::new(init), Box::new(cond), Box::new(update), vec![body])
     }
 
 
@@ -91,6 +90,10 @@ peg::parser!(pub grammar neoscript() for str {
         / l:factor() _ "%" _ r:term() { Node::calc('%', l, r) }
         / factor()
 
+    rule operator() -> Node
+    = n:word() _ "++" { Node::calc('+', Node::ReferVariable(n), Node::Number(1)) }
+    / n:word() _ "--" { Node::calc('-', Node::ReferVariable(n), Node::Number(1)) }
+
     rule factor() -> Node
         = "(" _ v:calc() _ ")" { v }
         / v:number() { Node::Number(v) }
@@ -102,11 +105,10 @@ peg::parser!(pub grammar neoscript() for str {
     rule word() -> String
         = v:$(['a'..='z' | 'A'..='Z']['a'..='z' | 'A'..='Z' | '0'..='9']*) { v.to_string() }
 
-    rule _()
-        = ws() / line_comment()
+    rule _
+        = line_comment() / ws()
 
-    rule end_of_line() = [';' | '\n']+ _
     rule ws() = [' ' | '\n' | '\t']*
     rule lf() = "\n"
-    rule line_comment() = "//" (!lf() [_])* lf()
+    rule line_comment() = "//" _ (!lf() [_])* lf()?
 });

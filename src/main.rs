@@ -1,5 +1,5 @@
-use std::fs;
 use neo_script::runtime::runtime;
+use std::fs;
 
 fn main() -> anyhow::Result<()> {
     let args: Vec<String> = std::env::args().collect();
