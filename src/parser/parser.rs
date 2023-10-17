@@ -39,17 +39,27 @@ peg::parser!(pub grammar neoscript() for str {
     = "print" _ v:expression() ";" { Node::DebugPrint(Box::new(v)) }
 
 
-    rule if_expr() -> Node
-    = "if" _ "(" _ cond:calc() _ ")" _ t:block() elsifs:("else if" _ "(" _ c:calc() _ ")" _ b:block() { (c, b) })* else_block:("else" _ b:block() { b })? {
-        let mut nodes = vec![Node::if_expr(cond, vec![t], vec![])];
-        for (elsif_cond, elsif_block) in elsifs {
-            nodes.push(Node::if_expr(elsif_cond, vec![elsif_block], vec![]));
+    rule if_expr() -> Node = "if" _ v:if_cond() { v }
+
+    rule if_cond() -> Node
+        = if_elseif() / if_else() / if_only()
+
+    rule if_elseif() -> Node
+        = "(" _ cond:expression() _ ")" _ t:block() _ "else if" _ f:if_cond() {
+            Node::If(Box::new(cond), vec![t], vec![f])
         }
-        if let Some(e_block) = else_block {
-            nodes.push(e_block);
+
+    rule if_else() -> Node
+        = "(" _ cond:expression() _ ")" _ t:block() _ "else" _ f:block() {
+            Node::If(Box::new(cond), vec![t], vec![f])
         }
-        Node::Block(nodes)
-    }
+
+    rule if_only() -> Node
+        = "(" _ cond:expression() _ ")" _ t:block() {
+            Node::If(Box::new(cond), vec![t], vec![])
+        }
+
+
 
     rule for_expr() -> Node
     = "for" _ "(" _ init:assignment() _ ";" _ cond:calc() _ ";" _ update:assignment() _ ")" _ body:block() {
