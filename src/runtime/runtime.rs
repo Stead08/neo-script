@@ -4,8 +4,23 @@ use anyhow::{anyhow, Result};
 use std::collections::HashMap;
 
 struct Context {
-    // own variable and value
-    vars: HashMap<String, VariableType>,
+    // スタック構造を導入
+    scopes: Vec<HashMap<String, VariableType>>,
+    global_variables: HashMap<String, VariableType>,
+}
+
+impl Context {
+    fn current_scope(&mut self) -> &mut HashMap<String, VariableType> {
+        self.scopes.last_mut().expect("No active scope")
+    }
+
+    fn push_scope(&mut self) {
+        self.scopes.push(HashMap::new());
+    }
+
+    fn pop_scope(&mut self) {
+        self.scopes.pop().expect("No scope to pop");
+    }
 }
 
 enum VariableType {
@@ -21,20 +36,22 @@ fn run_node(ctx: &mut Context, node: Node) -> Result<i64> {
             let r_val = run_node(ctx, *r)?;
             Ok(calc_op(op, l_val, r_val))
         }
-        Node::ReferVariable(name) => match ctx.vars.get(&name) {
+        Node::ReferVariable(name) => match ctx.current_scope().get(&name) {
             Some(VariableType::Immutable(value)) => Ok(*value),
             Some(VariableType::Mutable(value)) => Ok(*value),
             None => Err(anyhow!("Variable '{}' not found", name)),
         },
+
         Node::BindVariable(name, node) => {
             let val = run_node(ctx, *node)?;
-            ctx.vars.insert(name, VariableType::Immutable(val));
+            ctx.current_scope()
+                .insert(name, VariableType::Immutable(val));
             Ok(val)
         }
 
         Node::BindMutVariable(name, node) => {
             let val = run_node(ctx, *node)?;
-            ctx.vars.insert(name, VariableType::Mutable(val));
+            ctx.current_scope().insert(name, VariableType::Mutable(val));
             Ok(val)
         }
         Node::If(cond, true_n, false_n) => {
@@ -46,6 +63,8 @@ fn run_node(ctx: &mut Context, node: Node) -> Result<i64> {
             }
         }
         Node::For(init, cond, update, body) => {
+            // Initialize using Assignment
+
             run_node(ctx, *init)?;
             while {
                 let condition_result = run_node(ctx, *cond.clone())?;
@@ -67,7 +86,7 @@ fn run_node(ctx: &mut Context, node: Node) -> Result<i64> {
             Ok(0)
         }
         Node::Assignment(var_name, expr) => {
-            let is_mut = match ctx.vars.get(&var_name) {
+            let is_mut = match ctx.current_scope().get(&var_name) {
                 Some(VariableType::Mutable(_)) => true,
                 Some(VariableType::Immutable(_)) => {
                     return Err(anyhow!(
@@ -80,7 +99,8 @@ fn run_node(ctx: &mut Context, node: Node) -> Result<i64> {
 
             if is_mut {
                 let val = run_node(ctx, *expr)?;
-                ctx.vars.insert(var_name, VariableType::Mutable(val));
+                ctx.current_scope()
+                    .insert(var_name, VariableType::Mutable(val));
                 Ok(val)
             } else {
                 Err(anyhow!(
@@ -89,7 +109,12 @@ fn run_node(ctx: &mut Context, node: Node) -> Result<i64> {
                 ))
             }
         }
-        Node::Block(nodes) => run_nodes(ctx, &nodes),
+        Node::Block(nodes) => {
+            ctx.push_scope();
+            let result = run_nodes(ctx, &nodes);
+            ctx.pop_scope();
+            result
+        }
         _ => Err(anyhow!("Unsupported node")),
     }
 }
@@ -162,7 +187,8 @@ pub fn run(src: &str) -> Result<i64> {
     };
     println!("{:?}", nodes);
     let mut ctx = Context {
-        vars: HashMap::new(),
+        scopes: vec![HashMap::new()], // 初期のグローバルスコープを作成
+        global_variables: HashMap::new(),
     };
     run_nodes(&mut ctx, &nodes)
 }

@@ -13,7 +13,7 @@ peg::parser!(pub grammar neoscript() for str {
     = s:( if_() / for_()/ print() / bind_variable() / assignment() / block()) _ ";"? _ { s }
 
     rule expression() -> Node
-    = if_() / calc() / for_() / print() / bind_variable() / assignment()
+    = if_() / calc() / for_() / print() / assignment()
 
     rule block() -> Node
     = "{" _ v:sentences()? _ e:expression()? _ "}" _ {
@@ -59,9 +59,12 @@ peg::parser!(pub grammar neoscript() for str {
         }
 
     rule for_() -> Node
-    = "for" _ "(" _ init:assignment() _ ";" _ cond:calc() _ ";" _ update:expression() _ ")" _ body:block() {
+    = "for" _ "(" _ init:for_init() _ ";" _ cond:calc() _ ";" _ update:assignment() _ ";" _ ")" _ body:block() {
         Node::For(Box::new(init), Box::new(cond), Box::new(update), vec![body])
     }
+
+    rule for_init() -> Node
+    = w:word() _ "=" _ v:expression() { Node::BindMutVariable(w, Box::new(v)) }
 
 
     // Calculation rules
@@ -98,6 +101,31 @@ peg::parser!(pub grammar neoscript() for str {
     Node::Assignment(
         n.to_string(),
         Box::new(Node::Calc('-', Box::new(Node::ReferVariable(n.to_string())), Box::new(Node::Number(1))))
+    )}
+    / n:word() _ "+=" _ v:expression() {
+    Node::Assignment(
+        n.to_string(),
+        Box::new(Node::Calc('+', Box::new(Node::ReferVariable(n.to_string())), Box::new(v)))
+    )}
+    / n:word() _ "-=" _ v:expression() {
+    Node::Assignment(
+        n.to_string(),
+        Box::new(Node::Calc('-', Box::new(Node::ReferVariable(n.to_string())), Box::new(v)))
+    )}
+    / n:word() _ "*=" _ v:expression() {
+    Node::Assignment(
+        n.to_string(),
+        Box::new(Node::Calc('*', Box::new(Node::ReferVariable(n.to_string())), Box::new(v)))
+    )}
+    / n:word() _ "/=" _ v:expression() {
+    Node::Assignment(
+        n.to_string(),
+        Box::new(Node::Calc('/', Box::new(Node::ReferVariable(n.to_string())), Box::new(v)))
+    )}
+    / n:word() _ "%=" _ v:expression() {
+    Node::Assignment(
+        n.to_string(),
+        Box::new(Node::Calc('%', Box::new(Node::ReferVariable(n.to_string())), Box::new(v)))
     )}
     / factor()
 
