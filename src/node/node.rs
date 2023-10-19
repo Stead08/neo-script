@@ -14,8 +14,10 @@ pub enum Node {
     String(String),
     /** object **/
     Object(Vec<Node>),
-    /** function **/
-    Function(Vec<String>, Vec<Node>),
+    /** function declaration **/
+    FunctionDeclaration(String, Vec<String>, Vec<Node>),
+    /** function call **/
+    FunctionCall(String, Vec<Node>),
     /** calc expression **/
     Calc(char, Box<Node>, Box<Node>),
     /** if expression **/

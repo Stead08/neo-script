@@ -37,7 +37,7 @@ peg::parser!(pub grammar neoscript() for str {
     }
 
     rule sentence() -> Node
-    = s:( if_() / for_()/ while_loop() / print() / bind_variable() / assignment() / block()) _ ";"? _ { s }
+    = s:( if_() / for_()/ function()/ while_loop() / print() / bind_variable() / assignment() / block()) _ ";"? _ { s }
 
     rule expression() -> Node
     = if_() / calc() / for_() /  assignment()
@@ -95,6 +95,14 @@ peg::parser!(pub grammar neoscript() for str {
     = "while" _ "(" _ cond:calc() _ ")" _ "{" _ body:sentences() _ "}" {
         Node::While(Box::new(cond), body)
     }
+
+    rule function() -> Node
+    = "function" _ name:word() _ "(" _ args:word() ** "," _ ")" _ "{" _ body:sentences() _ "}" {
+        Node::FunctionDeclaration(name, args, body)
+    }
+
+
+
     // Calculation rules
     rule calc() -> Node = bit()
 
@@ -176,6 +184,7 @@ peg::parser!(pub grammar neoscript() for str {
         = "(" _ v:calc() _ ")" { v }
         / v:boolean() { Node::Boolean(v) }
         / v:number() { Node::Number(v) }
+        / v:word() _ "(" _ args:expression() ** "," _ ")" { Node::FunctionCall(v, args) }
         / v:word() { Node::ReferVariable(v) }
 
     rule boolean() -> bool

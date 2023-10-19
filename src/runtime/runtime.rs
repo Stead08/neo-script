@@ -3,9 +3,11 @@ use crate::parser::parser::neoscript;
 use anyhow::{anyhow, Result};
 use std::collections::HashMap;
 
+
 struct Context {
     // スタック構造を導入
     scopes: Vec<HashMap<String, VariableType>>,
+    functions: HashMap<String, (Vec<String>, Vec<Node>)>,
     global_variables: HashMap<String, VariableType>,
 }
 
@@ -85,6 +87,43 @@ fn run_node(ctx: &mut Context, node: Node) -> Result<i64> {
             }
             Ok(0)
         },
+        Node::FunctionDeclaration(name, args, body) => {
+            ctx.functions.insert(name, (args, body));
+            Ok(0)
+        },
+        Node::FunctionCall(name, args) => {
+            let function_data = ctx.functions.get(&name).cloned();
+
+            let (arg_names, body) = match function_data {
+                Some(v) => v,
+                None => return Err(anyhow!("Function '{}' not found", name)),
+            };
+
+            if arg_names.len() != args.len() {
+                return Err(anyhow!(
+            "Function '{}' takes {} arguments but {} were supplied",
+            name,
+            arg_names.len(),
+            args.len()
+        ));
+            }
+
+            ctx.push_scope();
+
+            for (arg_name, arg) in arg_names.iter().zip(args.iter()) {
+                let val = run_node(ctx, arg.clone())?; // This is a mutable borrow on ctx.
+                ctx.current_scope().insert(arg_name.to_string(), VariableType::Immutable(val)); // This is also a mutable borrow on ctx, but it's okay since the previous one has ended.
+            }
+
+            let result = run_nodes(ctx, &body);
+
+            ctx.pop_scope();
+
+            result
+        }
+
+
+
 
         Node::DebugPrint(v) => {
             println!("{}", run_node(ctx, *v)?);
@@ -219,6 +258,7 @@ pub fn run(src: &str) -> Result<i64> {
     let mut ctx = Context {
         scopes: vec![HashMap::new()], // 初期のグローバルスコープを作成
         global_variables: HashMap::new(),
+        functions: HashMap::new(),
     };
     run_nodes(&mut ctx, &nodes)
 }
