@@ -75,7 +75,16 @@ fn run_node(ctx: &mut Context, node: Node) -> Result<i64> {
                 run_node(ctx, Node::Assignment("i".to_string(), update.clone()))?;
             }
             Ok(0)
-        }
+        },
+        Node::While(cond, body) => {
+            while {
+                let condition_result = run_node(ctx, *cond.clone())?;
+                condition_result > 0
+            } {
+                run_nodes(ctx, &body)?;
+            }
+            Ok(0)
+        },
 
         Node::DebugPrint(v) => {
             println!("{}", run_node(ctx, *v)?);
@@ -163,6 +172,27 @@ fn calc_op(op: char, l: i64, r: i64) -> i64 {
         }
         'l' => {
             if l <= r {
+                1
+            } else {
+                0
+            }
+        }
+        '&' => {
+            if l > 0 && r > 0 {
+                1
+            } else {
+                0
+            }
+        }
+        '|' => {
+            if l > 0 || r > 0 {
+                1
+            } else {
+                0
+            }
+        }
+        '^' => {
+            if (l > 0 && r == 0) || (l == 0 && r > 0) {
                 1
             } else {
                 0

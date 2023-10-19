@@ -1,36 +1,61 @@
 use crate::node::node::Node;
 use peg;
 
+
 peg::parser!(pub grammar neoscript() for str {
     pub rule parse() -> Vec<Node>
-        = _
-    v:sentences() { v }
+    = v:first_block() { vec![v] }
 
-    rule sentences() -> Vec<Node>
-        = sentence() ** (_ ";"? _)
-
-    rule sentence() -> Node
-    = s:( if_() / for_()/ print() / bind_variable() / assignment() / block()) _ ";"? _ { s }
-
-    rule expression() -> Node
-    = if_() / calc() / for_() / print() / assignment()
-
-    rule block() -> Node
-    = "{" _ v:sentences()? _ e:expression()? _ "}" _ {
+    rule first_block() -> Node
+    = _ v:sentences()? _ e:expressions()? _ b:blocks()? _ {
     let mut nodes = Vec::new();
     if let Some(sentences) = v {
         nodes.extend(sentences);
     }
     if let Some(expr) = e {
-        nodes.push(expr);
+        nodes.extend(expr);
+    }
+    if let Some(blocks) = b {
+        nodes.extend(blocks);
     }
     Node::Block(nodes)
     }
 
+    rule block() -> Node
+    = _ "{" _ v:sentences()? _ e:expressions()? _ b:blocks()? _ "}" _ {
+    let mut nodes = Vec::new();
+    if let Some(sentences) = v {
+        nodes.extend(sentences);
+    }
+    if let Some(expr) = e {
+        nodes.extend(expr);
+    }
+    if let Some(blocks) = b {
+        nodes.extend(blocks);
+    }
+    Node::Block(nodes)
+    }
+
+    rule sentence() -> Node
+    = s:( if_() / for_()/ while_loop() / print() / bind_variable() / assignment() / block()) _ ";"? _ { s }
+
+    rule expression() -> Node
+    = if_() / calc() / for_() /  assignment()
+
+
+    rule blocks() -> Vec<Node>
+        = block() ** _
+
+    rule sentences() -> Vec<Node>
+        = sentence() ** _
+
+    rule expressions() -> Vec<Node>
+        = expression() ** _
+
 
     rule bind_variable() -> Node
-        = "const" _ w:word() _ "=" _ v:expression() ";" { Node::BindVariable(w, Box::new(v)) }
-        / "let" _ w:word() _ "=" _ v:expression() ";" { Node::BindMutVariable(w, Box::new(v)) }
+        = "const" _ w:word() _ "=" _ v:expression() _ { Node::BindVariable(w, Box::new(v)) }
+        / "let" _ w:word() _ "=" _ v:expression() _ { Node::BindMutVariable(w, Box::new(v)) }
 
 
     rule print() -> Node
@@ -66,9 +91,18 @@ peg::parser!(pub grammar neoscript() for str {
     rule for_init() -> Node
     = w:word() _ "=" _ v:expression() { Node::BindMutVariable(w, Box::new(v)) }
 
-
+    rule while_loop() -> Node
+    = "while" _ "(" _ cond:calc() _ ")" _ "{" _ body:sentences() _ "}" {
+        Node::While(Box::new(cond), body)
+    }
     // Calculation rules
-    rule calc() -> Node = comp()
+    rule calc() -> Node = bit()
+
+    rule bit() -> Node
+        = l:comp() _ "&" _ r:bit() { Node::calc('&', l, r) }
+        / l:comp() _ "|" _ r:bit() { Node::calc('|', l, r) }
+        / l:comp() _ "^" _ r:bit() { Node::calc('^', l, r) }
+        / comp()
 
     rule comp() -> Node
         = l:expr() _ "==" _ r:comp() { Node::calc('=', l, r) }
@@ -82,6 +116,13 @@ peg::parser!(pub grammar neoscript() for str {
     rule expr() -> Node
         = l:term() _ "+" _ r:expr() { Node::calc('+', l, r) }
         / l:term() _ "-" _ r:expr() { Node::calc('-', l, r) }
+        / logic()
+
+    rule logic() -> Node
+        = l:term() _ "&&" _ r:term() { Node::calc('&', l, r) }
+        / l:term() _ "||" _ r:term() { Node::calc('|', l, r) }
+        / l:term() _ "^" _ r:term() { Node::calc('^', l, r) }
+        / "!" _ r:term() { Node::calc('!', Node::Number(1), r) }
         / term()
 
     rule term() -> Node
@@ -89,6 +130,7 @@ peg::parser!(pub grammar neoscript() for str {
         / l:factor() _ "/" _ r:term() { Node::calc('/', l, r) }
         / l:factor() _ "%" _ r:term() { Node::calc('%', l, r) }
         / factor()
+
 
     rule assignment() -> Node
     = w:word() _ "=" _ v:expression() { Node::Assignment(w, Box::new(v)) }
@@ -126,7 +168,8 @@ peg::parser!(pub grammar neoscript() for str {
     Node::Assignment(
         n.to_string(),
         Box::new(Node::Calc('%', Box::new(Node::ReferVariable(n.to_string())), Box::new(v)))
-    )}
+    )
+    }
     / factor()
 
     rule factor() -> Node
@@ -147,3 +190,4 @@ peg::parser!(pub grammar neoscript() for str {
     rule lf() = "\n"
     rule line_comment() = "//" _ (!lf() [_])* lf()?
 });
+
