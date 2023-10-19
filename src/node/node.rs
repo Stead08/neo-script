@@ -18,6 +18,8 @@ pub enum Node {
     While(Box<Node>, Vec<Node>),
     /** bind variable expression **/
     BindVariable(String, Box<Node>),
+    /** bind mutable variable expression **/
+    BindMutVariable(String, Box<Node>),
     /** variable reference expression **/
     ReferVariable(String),
     /** Assignment expression **/

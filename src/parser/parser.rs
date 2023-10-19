@@ -28,12 +28,9 @@ peg::parser!(pub grammar neoscript() for str {
     }
 
 
-    rule assignment() -> Node
-    = w:word() _ "=" _ v:expression() { Node::Assignment(w, Box::new(v)) }
-
-
     rule bind_variable() -> Node
-        = "let" _ w:word() _ "=" _ v:expression() ";" { Node::BindVariable(w, Box::new(v)) }
+        = "const" _ w:word() _ "=" _ v:expression() ";" { Node::BindVariable(w, Box::new(v)) }
+        / "let" _ w:word() _ "=" _ v:expression() ";" { Node::BindMutVariable(w, Box::new(v)) }
 
 
     rule print() -> Node
@@ -62,7 +59,7 @@ peg::parser!(pub grammar neoscript() for str {
         }
 
     rule for_() -> Node
-    = "for" _ "(" _ init:assignment() _ ";" _ cond:calc() _ ";" _ update:operator() _ ")" _ body:block() {
+    = "for" _ "(" _ init:assignment() _ ";" _ cond:calc() _ ";" _ update:expression() _ ")" _ body:block() {
         Node::For(Box::new(init), Box::new(cond), Box::new(update), vec![body])
     }
 
@@ -90,9 +87,19 @@ peg::parser!(pub grammar neoscript() for str {
         / l:factor() _ "%" _ r:term() { Node::calc('%', l, r) }
         / factor()
 
-    rule operator() -> Node
-    = n:word() _ "++" { Node::calc('+', Node::ReferVariable(n), Node::Number(1)) }
-    / n:word() _ "--" { Node::calc('-', Node::ReferVariable(n), Node::Number(1)) }
+    rule assignment() -> Node
+    = w:word() _ "=" _ v:expression() { Node::Assignment(w, Box::new(v)) }
+    / n:word() _ "++" {
+    Node::Assignment(
+        n.to_string(),
+        Box::new(Node::Calc('+', Box::new(Node::ReferVariable(n.to_string())), Box::new(Node::Number(1))))
+    )}
+    / n:word() _ "--" {
+    Node::Assignment(
+        n.to_string(),
+        Box::new(Node::Calc('-', Box::new(Node::ReferVariable(n.to_string())), Box::new(Node::Number(1))))
+    )}
+    / factor()
 
     rule factor() -> Node
         = "(" _ v:calc() _ ")" { v }
