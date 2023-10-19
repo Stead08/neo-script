@@ -4,10 +4,18 @@
 pub enum Node {
     /** None **/
     None,
+    /** boolean **/
+    Boolean(bool),
     /** Number(int64) **/
     Number(i64),
     /** Number(float64) **/
     Float(f64),
+    /** String **/
+    String(String),
+    /** object **/
+    Object(Vec<Node>),
+    /** function **/
+    Function(Vec<String>, Vec<Node>),
     /** calc expression **/
     Calc(char, Box<Node>, Box<Node>),
     /** if expression **/
