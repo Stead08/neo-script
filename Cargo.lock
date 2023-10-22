@@ -13,6 +13,17 @@ name = "neo-script"
 version = "0.1.0"
 dependencies = [
  "anyhow",
+]
+
+[[package]]
+name = "nodes"
+version = "0.1.0"
+
+[[package]]
+name = "parser"
+version = "0.1.0"
+dependencies = [
+ "nodes",
  "peg",
 ]
 
@@ -60,6 +71,10 @@ checksum = "5267fca4496028628a95160fc423a33e8b2e6af8a5302579e322e4b520293cae"
 dependencies = [
  "proc-macro2",
 ]
+
+[[package]]
+name = "runtime"
+version = "0.1.0"
 
 [[package]]
 name = "unicode-ident"
