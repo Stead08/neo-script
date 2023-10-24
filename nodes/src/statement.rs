@@ -15,10 +15,17 @@ pub enum Statement {
     TruCatchFinally(TryCatchFinallyStatement),
 }
 
+
 pub struct VariableBindingStatement {
     name: String,
+    binding_type: BindingType,
     type_: Type,
     value: Expression,
+}
+
+pub enum BindingType {
+    Mutable,
+    Immutable,
 }
 
 pub struct FunctionDeclarationStatement {

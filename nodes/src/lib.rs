@@ -1,7 +1,7 @@
 pub mod node;
 pub mod types;
-mod expression;
-mod statement;
+pub mod expression;
+pub mod statement;
 
 pub fn add(left: usize, right: usize) -> usize {
     left + right

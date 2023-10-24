@@ -1,5 +1,6 @@
 use crate::types::types::Type;
-
+/// Definition of an expression.
+/// Compared to Statement, an Expression must return a value.
 pub enum Expression {
     Literal(LiteralExpression),
     Identifier(IdentifierExpression),

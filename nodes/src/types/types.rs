@@ -11,14 +11,14 @@ use crate::types::unit::Unit;
 
 /// The type of a node.
 pub enum Type {
-    Int(Integer),
-    Float(Float),
-    Char(Character),
-    String(String_),
-    Bool(Boolean),
-    Array(Array),
-    Tuple(Tuple),
-    Unit(Unit),
-    Never(Never),
+    Int,
+    Float,
+    Char,
+    String,
+    Bool,
+    Array,
+    Tuple,
+    Unit,
+    Never,
     Null,
 }
